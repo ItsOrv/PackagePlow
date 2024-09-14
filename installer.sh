@@ -1,38 +1,57 @@
 #!/bin/bash
-if [ $(/etc/alpine-release) ]; then
-	echo " This script does not support alpine distros"
-	exit
-fi
-if [ $(whoami) != 'root' ]; then
-	echo "You must be root to run this script !"
-	exit
+
+# Check for root privileges
+if [ "$(whoami)" != 'root' ]; then
+    echo "You must be root to run this script!"
+    exit 1
 fi
 
+# Check for Alpine Linux
+if [ -f /etc/alpine-release ]; then
+    echo "This script does not support Alpine distros"
+    exit 1
+fi
+
+# Read package names from file
 package_names=""
-
 while IFS= read -r line; do
-   package_string="{$package_names} $line"
+    package_names="${package_names} ${line}"
 done < package.txt
 
-declare -A pManager;
-osInfo[/etc/redhat-release]=yum
-osInfo[/etc/arch-release]=pacman
-osInfo[/etc/gentoo-release]=emerge
-osInfo[/etc/SuSE-release]=zypper
-osInfo[/etc/debian_version]=apt-get
-osInfo[/etc/alpine-release]=apk
+# Determine package manager based on distribution
+declare -A pManager
+pManager[/etc/redhat-release]=yum
+pManager[/etc/arch-release]=pacman
+pManager[/etc/gentoo-release]=emerge
+pManager[/etc/SuSE-release]=zypper
+pManager[/etc/debian_version]=apt-get
 
-for f in ${!osInfo[@]}
-do
-    if [[ ${osInfo[$f]} = 'yum' ] || [${osInfo[$f]} = 'apt'] || [${osInfo[$f]} = 'zypper']]; then
-        sudo $osInfo[$f] install $package_names 
-    elif [ ${osInfo[$f]} = 'pacman' ]; then
-	sudo pacman -S $package_names
-    elif [ ${osInfo[$f]} = 'emerge' ]; then
-	sudo emerge -av $package_names
-    elif [ ${osInfo[$f]} = 'emerge' ]; then
-	sudo emerge -av $package_name
-    else
-	echo "Something went wrong :/"
+# Install packages based on distribution
+for f in "${!pManager[@]}"; do
+    if [ -f "$f" ]; then
+        case ${pManager[$f]} in
+            yum)
+                sudo yum install -y $package_names
+                ;;
+            pacman)
+                sudo pacman -S --noconfirm $package_names
+                ;;
+            emerge)
+                sudo emerge -av $package_names
+                ;;
+            zypper)
+                sudo zypper install -y $package_names
+                ;;
+            apt-get)
+                sudo apt-get update
+                sudo apt-get install -y $package_names
+                ;;
+            *)
+                echo "Package manager not supported"
+                ;;
+        esac
+        exit 0
     fi
 done
+
+echo "Unsupported Linux distribution."
